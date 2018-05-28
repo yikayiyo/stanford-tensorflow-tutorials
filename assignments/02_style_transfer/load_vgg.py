@@ -21,11 +21,12 @@ VGG_FILENAME = 'imagenet-vgg-verydeep-19.mat'
 EXPECTED_BYTES = 534904783
 
 class VGG(object):
+
     def __init__(self, input_img):
         utils.download(VGG_DOWNLOAD_LINK, VGG_FILENAME, EXPECTED_BYTES)
         self.vgg_layers = scipy.io.loadmat(VGG_FILENAME)['layers']
         self.input_img = input_img
-        self.mean_pixels = np.array([123.68, 116.779, 103.939]).reshape((1,1,1,3))
+        self.mean_pixels = np.array([123.68, 116.779, 103.939]).reshape((1, 1, 1, 3))
 
     def _weights(self, layer_idx, expected_layer_name):
         """ Return the weights and biases at layer_idx already trained by VGG
@@ -37,41 +38,48 @@ class VGG(object):
         return W, b.reshape(b.size)
 
     def conv2d_relu(self, prev_layer, layer_idx, layer_name):
-        """ Create a convolution layer with RELU using the weights and
-        biases extracted from the VGG model at 'layer_idx'. You should use
-        the function _weights() defined above to extract weights and biases.
+        """
+        提取VGG layer_idx的参数,作为当前卷积+relu层的参数,
+        _weights()返回的是numpy数组,需要转化为tensors.
 
-        _weights() returns numpy arrays, so you have to convert them to TF tensors.
+        参数:
+            prev_layer: 上一层的输出张量
+            layer_idx: vgg_layers中当前图层的索引
+            layer_name: 当前图层的名称,用来指定variable_scope
 
-        Don't forget to apply relu to the output from the convolution.
-        Inputs:
-            prev_layer: the output tensor from the previous layer
-            layer_idx: the index to current layer in vgg_layers
-            layer_name: the string that is the name of the current layer.
-                        It's used to specify variable_scope.
         Hint for choosing strides size: 
             for small images, you probably don't want to skip any pixel
         """
         ###############################
         ## TO DO
-        out = None
+        with tf.variable_scope(layer_name) as scope:
+            W, b = self._weights(layer_idx, layer_name)
+            W = tf.constant(W, name='weights')
+            b = tf.constant(b, name='bias')
+            conv2d = tf.nn.conv2d(prev_layer,
+                                  filter=W,
+                                  strides=[1, 1, 1, 1],
+                                  padding='SAME')
+            out = tf.nn.relu(conv2d + b)
         ###############################
         setattr(self, layer_name, out)
 
     def avgpool(self, prev_layer, layer_name):
-        """ Create the average pooling layer. The paper suggests that 
-        average pooling works better than max pooling.
-        
-        Input:
-            prev_layer: the output tensor from the previous layer
-            layer_name: the string that you want to name the layer.
-                        It's used to specify variable_scope.
+        """ 文章建议使用average pooling
+        参数:
+            prev_layer: 上一层的输出张量
+            layer_name: 当前图层的名称,用来指定variable_scope
 
-        Hint for choosing strides and kszie: choose what you feel appropriate
+        Hint for choosing strides and ksize:
+            choose what you feel appropriate
         """
         ###############################
         ## TO DO
-        out = None
+        with tf.variable_scope(layer_name):
+            out = tf.nn.avg_pool(prev_layer,
+                                 ksize=[1, 2, 2, 1],
+                                 strides=[1, 2, 2, 1],
+                                 padding='SAME')
         ###############################
         setattr(self, layer_name, out)
 
